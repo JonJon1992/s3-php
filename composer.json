@@ -1,0 +1,20 @@
+{
+  "name": "s3/php",
+  "require": {
+    "php": "^8.0",
+    "aws/aws-sdk-php": "^3.261.13",
+    "ext-json": "*",
+    "ext-openssl": "*"
+  },
+  "require-dev": {
+    "squizlabs/php_codesniffer": "3.7.2"
+  },
+  "autoload": {
+    "psr-4": {
+      "S3\\Lib\\": "lib"
+    }
+  },
+  "config": {
+    "process-timeout": 0
+  }
+}

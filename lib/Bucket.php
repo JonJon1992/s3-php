@@ -11,29 +11,19 @@ class Bucket
 {
     protected $client;
     protected $root = '';
-
-    protected $bucketName;
+    protected $bucket;
     protected $region;
-
     protected $access_key;
-
     protected $secret_key;
-
     protected $url_cdn = '';
     protected $timeOff;
-    protected $access_key_cdn = '';
-    protected $secret_key_cdn = '';
 
     public function __construct($config)
     {
-        $this->bucketName = $config['bucket'];
+        $this->bucket = $config['bucket'];
         $this->region = $config['region'];
         $this->access_key = $config['access_key'];
         $this->secret_key = $config['secret_key'];
-        $this->url_cdn = $config['url_cdn'];
-        $this->access_key_cdn = $config['access_key_cdn'];
-        $this->secret_key_cdn = $config['secret_key_cdn'];
-
 
         $this->client = new S3MultiRegionClient([
             'version' => 'latest',
@@ -62,9 +52,9 @@ class Bucket
     /**
      * @return mixed
      */
-    public function getBucketName(): mixed
+    public function getBucket(): mixed
     {
-        return $this->bucketName;
+        return $this->bucket;
     }
 
     /**
@@ -91,38 +81,16 @@ class Bucket
         return $this->secret_key;
     }
 
-    /**
-     * @return mixed|string
-     */
-    public function getUrlCdn(): mixed
-    {
-        return $this->url_cdn;
-    }
 
-    /**
-     * @return mixed|string
-     */
-    public function getAccessKeyCdn(): mixed
-    {
-        return $this->access_key_cdn;
-    }
-
-    /**
-     * @return mixed|string
-     */
-    public function getSecretKeyCdn(): mixed
-    {
-        return $this->secret_key_cdn;
-    }
 
     public function isExistBucket(): bool
     {
-        return $this->client->doesBucketExist($this->getBucketName());
+        return $this->client->doesBucketExist($this->getBucket());
     }
 
     public function locationBucket(): Result
     {
-        return $this->client->getBucketLocation(['Bucket' => $this->getBucketName()]);
+        return $this->client->getBucketLocation(['Bucket' => $this->getBucket()]);
     }
 
     public function root($root = null)
@@ -162,7 +130,7 @@ class Bucket
             $path = $this->root . '/' . $path;
         }
         if ($bucket) {
-            $path = $this->bucketName . '/' . $path;
+            $path = $this->bucket . '/' . $path;
         }
         return $path;
     }
@@ -170,7 +138,7 @@ class Bucket
     public function getObject($file_path): ?Result
     {
         try {
-            return $this->client->getObject(['Bucket' => $this->getBucketName(), 'Key' => $file_path]);
+            return $this->client->getObject(['Bucket' => $this->getBucket(), 'Key' => $file_path]);
         } catch (Exception $exception) {
             return null;
         }
@@ -178,7 +146,7 @@ class Bucket
 
     public function existObject($file_path): bool
     {
-        return $this->client->doesObjectExist($this->getBucketName(), $this->path($file_path));
+        return $this->client->doesObjectExist($this->getBucket(), $this->path($file_path));
     }
 
     public function getFiles($path): array
@@ -187,7 +155,7 @@ class Bucket
 
         $prefix = rtrim($path, '/') . '/';
 
-        $objs = $this->client->getPaginator('ListObjects', ['Bucket' => $this->getBucketName(), 'Prefix' => $prefix]);
+        $objs = $this->client->getPaginator('ListObjects', ['Bucket' => $this->getBucket(), 'Prefix' => $prefix]);
 
         foreach ($objs as $obj) {
             $items = $obj->search("Contents[*]");
@@ -205,7 +173,7 @@ class Bucket
         ];
         $object = array_merge($object, $metadata);
 
-        $object['Bucket'] = $this->getBucketName();
+        $object['Bucket'] = $this->getBucket();
         $object['Key'] = $this->path($file_path);
         $object['Body'] = $file_content;
 
@@ -221,14 +189,14 @@ class Bucket
     public function delete($file_path): Result
     {
         return $this->client->deleteObject([
-            'Bucket' => $this->getBucketName(),
+            'Bucket' => $this->getBucket(),
             'Key' => $this->path($file_path)
         ]);
     }
 
     public function endpoint($https = true): string
     {
-        return ($https ? 'https' : 'http') . '://' . $this->bucketName . '.' . S3::ENDPOINT;
+        return ($https ? 'https' : 'http') . '://' . $this->bucket . '.' . S3::ENDPOINT;
     }
 
     public function time()
@@ -256,7 +224,7 @@ class Bucket
         $key = $this->getAccessKey();
         $exp = $this->time() + $exp;
 
-        $signature = urlencode($this->hash("GET\n\n\n{$exp}\n/{$this->getBucketName()}/{$file_path}"));
+        $signature = urlencode($this->hash("GET\n\n\n{$exp}\n/{$this->getBucket()}/{$file_path}"));
 
         return sprintf('%s/%s?AWSAccessKeyId=%s&Expires=%u&Signature=%s', $url, $file_path, $key, $exp, $signature);
     }

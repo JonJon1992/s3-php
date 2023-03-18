@@ -12,7 +12,10 @@
   "autoload": {
     "psr-4": {
       "S3\\Lib\\": "lib"
-    }
+    },
+    "files": [
+      "lib/helper.php"
+    ]
   },
   "config": {
     "process-timeout": 0

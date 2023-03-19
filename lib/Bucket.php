@@ -212,7 +212,7 @@ class Bucket
         $data = $this->locationBucket();
         $timeSys = time();
 
-        $timeAWS = strtotime($data['@metadata']['headers']['data']);
+        $timeAWS = strtotime($data['@metadata']['headers']['date']);
 
         $this->timeOff = $timeAWS - $timeSys;
     }

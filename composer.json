@@ -1,5 +1,5 @@
 {
-  "name": "jonjon1992/s3",
+  "name": "jonjon1992/s3-php",
   "version":"1.0.5",
   "require": {
     "php": "^8.0",

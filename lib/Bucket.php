@@ -82,7 +82,6 @@ class Bucket
     }
 
 
-
     public function isExistBucket(): bool
     {
         return $this->client->doesBucketExist($this->getBucket());
@@ -194,9 +193,10 @@ class Bucket
         ]);
     }
 
-    public function endpoint($https = true): string
+    public function endpoint($https = true, $local = false): string
     {
-        return ($https ? 'https' : 'http') . '://' . $this->bucket . '.' . S3::ENDPOINT;
+
+        return ($https ? 'https' : 'http') . '://' . $this->bucket . '.' . ($local ? S3::ENDPOINT : S3::ENPOINT_LOCAL);
     }
 
     public function time()
@@ -217,10 +217,10 @@ class Bucket
         $this->timeOff = $timeAWS - $timeSys;
     }
 
-    public function fileUrl($file_path, $exp = 3600, $https = true): string
+    public function fileUrl($file_path, $exp = 3600, $https = true, $endpointLocal = false): string
     {
         $file_path = $this->path(str_replace(['%2F', '%2B'], ['/', '+'], rawurlencode($file_path)));
-        $url = $this->endpoint($https);
+        $url = $this->endpoint($https, $endpointLocal);
         $key = $this->getAccessKey();
         $exp = $this->time() + $exp;
 

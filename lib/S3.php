@@ -5,6 +5,7 @@ namespace S3\Lib;
 class S3
 {
     const ENDPOINT = 's3.amazonaws.com';
+    const ENPOINT_LOCAL = 'http://localhost:4566';
     const HEADER_CONTENT_TYPE = 'Content_Type';
     const HEADER_REQUEST_PAYER = 'x-amz-request-payer';
     const HEADER_ACL = 'x-amz-acl';

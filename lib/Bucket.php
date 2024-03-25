@@ -203,10 +203,10 @@ class Bucket
         ]);
     }
 
-    public function endpoint($https = true, $local = false): string
+    public function endpoint($https = true): string
     {
 
-        return ($https ? 'https' : 'http') . '://' . $this->bucket . '.' . ($local ? S3::ENDPOINT : S3::ENPOINT_LOCAL);
+        return ($https ? 'https' : 'http') . '://' . $this->bucket . '.' . $this->getEndpoint();
     }
 
     public function time()
@@ -230,7 +230,7 @@ class Bucket
     public function fileUrl($file_path, $exp = 3600, $https = true, $endpointLocal = false): string
     {
         $file_path = $this->path(str_replace(['%2F', '%2B'], ['/', '+'], rawurlencode($file_path)));
-        $url = $this->endpoint($https, $endpointLocal);
+        $url = $this->endpoint($https);
         $key = $this->getAccessKey();
         $exp = $this->time() + $exp;
 

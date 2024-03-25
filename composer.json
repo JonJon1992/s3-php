@@ -1,6 +1,6 @@
 {
   "name": "jonjon1992/s3-php",
-  "version":"1.0.9",
+  "version":"1.0.10",
   "require": {
     "php": "^8.0",
     "aws/aws-sdk-php": "3.295.0",

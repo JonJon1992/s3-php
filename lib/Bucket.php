@@ -18,17 +18,22 @@ class Bucket
     protected $url_cdn = '';
     protected $timeOff;
 
+    protected $endpoint;
+
     public function __construct($config)
     {
         $this->bucket = $config['bucket'];
         $this->region = $config['region'];
         $this->access_key = $config['access_key'];
         $this->secret_key = $config['secret_key'];
+        $this->endpoint = empty ($config['endpoint']) ? S3::ENDPOINT : $config['endpoint'];
+
 
         $this->client = new S3MultiRegionClient([
             'version' => 'latest',
             'scheme' => 'http',
             'region' => $this->getRegion(),
+            'endpoint' => $this->getEndpoint(),
             'credentials' => new Credentials($this->getAccessKey(), $this->getSecretKey())
         ]);
     }
@@ -90,6 +95,11 @@ class Bucket
     public function locationBucket(): Result
     {
         return $this->client->getBucketLocation(['Bucket' => $this->getBucket()]);
+    }
+
+    public function getEndpoint()
+    {
+        return $this->endpoint;
     }
 
     public function root($root = null)

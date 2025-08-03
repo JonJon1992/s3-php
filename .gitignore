@@ -1,2 +1,45 @@
+# Composer
 /vendor/
-/.idea
+composer.phar
+composer.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+.phpunit.cache/
+
+# Coverage reports
+coverage/
+coverage.txt
+
+# Environment files
+.env
+.env.local
+.env.testing
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# AWS credentials (security)
+.aws/
+aws-credentials.json
+
+# Test files
+test-uploads/
+test-downloads/

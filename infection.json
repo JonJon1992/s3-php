@@ -1,0 +1,24 @@
+{
+    "timeout": 10,
+    "source": {
+        "directories": [
+            "lib"
+        ]
+    },
+    "logs": {
+        "text": "infection.log",
+        "summary": "infection-summary.log",
+        "debug": "infection-debug.log"
+    },
+    "tmpDir": ".infection",
+    "phpUnit": {
+        "configDir": "."
+    },
+    "mutators": {
+        "@default": true
+    },
+    "testFramework": "phpunit",
+    "bootstrap": "vendor/autoload.php",
+    "initialTestsPhpOptions": "-d zend_extension=xdebug.so",
+    "testFrameworkOptions": "--configuration=phpunit.xml"
+} 

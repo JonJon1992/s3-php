@@ -21,6 +21,7 @@ logs/
 # Cache
 .cache/
 .phpunit.cache/
+.phpstan/
 
 # Coverage reports
 coverage/

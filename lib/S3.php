@@ -60,6 +60,7 @@ class S3
             if (empty($keys)) {
                 throw new InvalidArgumentException('No S3 configuration found. Use S3::use() to configure first.');
             }
+            // Usar array_shift para obter o primeiro elemento (PHP 7.0+)
             $alias = array_shift($keys);
         }
 

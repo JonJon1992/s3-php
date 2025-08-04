@@ -1,6 +1,6 @@
 {
   "name": "jonjon1992/s3-php",
-  "version":"2.1.0",
+  "version":"2.4.0",
   "description": "Uma biblioteca PHP simples e eficiente para trabalhar com Amazon S3",
   "keywords": ["aws", "s3", "amazon", "storage", "php"],
   "license": "MIT",
@@ -11,7 +11,7 @@
     }
   ],
   "require": {
-    "php": "^8.0",
+    "php": "^8.2",
     "aws/aws-sdk-php": "^3.350",
     "ext-json": "*",
     "ext-openssl": "*"
@@ -40,7 +40,10 @@
   "config": {
     "process-timeout": 0,
     "optimize-autoloader": true,
-    "sort-packages": true
+    "sort-packages": true,
+    "allow-plugins": {
+      "infection/extension-installer": true
+    }
   },
   "scripts": {
     "pre-autoload-dump": "Aws\\Script\\Composer\\Composer::removeUnusedServices",

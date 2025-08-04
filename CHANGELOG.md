@@ -2,117 +2,97 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [2.1.0] - 2024-12-19
-
-### Added
-- Upload de arquivos grandes com `MultipartUploader`
-- URLs pré-assinadas nativas do AWS SDK
-- Operações de cópia e movimentação de arquivos
-- Deletar múltiplos arquivos de uma vez
-- Obter metadados de objetos
-- Gerenciamento de ACLs
-- Estatísticas do bucket (tamanho e contagem)
-- Configuração de metadados padrão
-- Suporte a desenvolvimento local (LocalStack)
-- Helper functions adicionais (`s3_exists`, `s3_url`, `s3_presigned_url`)
-- Documentação completa com exemplos
-- Testes unitários abrangentes
-- Configuração de qualidade de código (PHPStan, PHPCS, Psalm, Infection)
-- Docker support para desenvolvimento
-- Makefile para automação de tarefas
+## [2.4.0] - 2025-08-04
 
 ### Changed
-- Melhorado tratamento de exceções
-- Otimização do autoloader do Composer
-- Remoção de serviços AWS não utilizados
-- Tipagem forte em todos os métodos
-- Validação de configurações aprimorada
-- Melhor organização do código
+- **PHP Version**: Updated minimum PHP version requirement from 8.1 to 8.2 for modern PHP features
+- **Performance**: Improved performance using modern PHP 8.2+ features
+- **Code Quality**: Enhanced code using arrow functions, array functions, and modern patterns
+
+### Technical Details
+- Updated `composer.json` PHP version constraint from `^8.1` to `^8.2`
+- Replaced anonymous functions with arrow functions for better performance
+- Used `array_sum()` with `array_column()` for better array operations
+- Improved string operations using modern PHP functions
+- Enhanced code readability and maintainability
+
+## [2.3.0] - 2025-08-04
 
 ### Fixed
-- Corrigido erro de tipagem em métodos
-- Corrigido problema com paths de arquivos
-- Removido uso de `S3MultiRegionClient` desnecessário
-- Melhorado tratamento de erros
-
-### Technical
-- Compatível com AWS SDK PHP ^3.350
-- Requer PHP ^8.0
-- Timeouts configuráveis
-- Paginação melhorada para listagem de arquivos
-
-## [2.0.0] - 2024-XX-XX
-
-### Added
-- Suporte ao AWS SDK PHP v3
-- Métodos básicos de CRUD para S3
-- Configuração de múltiplos buckets
-- Helper functions básicas
+- **Deprecated Methods**: Replaced deprecated AWS SDK methods with their V2 counterparts
+  - `doesBucketExist()` → `doesBucketExistV2()`
+  - `doesObjectExist()` → `doesObjectExistV2()`
+- **PHP Version**: Updated minimum PHP version requirement from 8.0 to 8.1 for better AWS SDK compatibility
 
 ### Changed
-- Migração do AWS SDK PHP v2 para v3
-- Refatoração completa da API
+- **Dependencies**: Updated AWS SDK PHP requirement to ensure compatibility with latest versions
+- **Code Quality**: Fixed code style issues and improved overall code quality
 
-## [1.0.10] - 2024-XX-XX
+### Technical Details
+- Updated `Bucket::isExistBucket()` method to use `doesBucketExistV2($bucket, false)`
+- Updated `Bucket::existObject()` method to use `doesObjectExistV2($bucket, $key, false)`
+- Updated `composer.json` PHP version constraint from `^8.0` to `^8.1`
+- Updated documentation to reflect new PHP version requirement
 
-### Fixed
-- Correções de bugs menores
-- Melhorias de compatibilidade
-
-## [1.0.9] - 2024-XX-XX
-
-### Fixed
-- Correções de bugs menores
-
-## [1.0.8] - 2024-XX-XX
-
-### Fixed
-- Correções de bugs menores
-
-## [1.0.7] - 2024-XX-XX
-
-### Fixed
-- Correções de bugs menores
-
-## [1.0.6] - 2024-XX-XX
-
-### Fixed
-- Correções de bugs menores
-
-## [1.0.5] - 2024-XX-XX
-
-### Fixed
-- Correções de bugs menores
-
-## [1.0.4] - 2024-XX-XX
-
-### Fixed
-- Correções de bugs menores
-
-## [1.0.3] - 2024-XX-XX
+## [2.2.0] - 2025-08-04
 
 ### Added
-- Primeira versão estável
-- Funcionalidades básicas do S3
+- **CDN Support**: Integration with external CDNs for better performance
+- **URL Caching**: Internal cache for frequently accessed URLs
+- **S3 Transfer Acceleration**: Native support for accelerated transfers
+- **Specialized Download URLs**: URLs with attachment disposition
+- **Direct Upload**: Pre-signed URLs for direct S3 uploads
+- **Enhanced Validation**: URL and configuration validation and sanitization
+- **Dynamic Endpoints**: Region-optimized endpoints
+- **New Helper Functions**: Simpler and more intuitive API
 
-### Fixed
-- Correções de bugs iniciais
+### Performance
+- URL caching for repeated requests
+- Region-specific endpoints
+- S3 Transfer Acceleration for better latency
+- Optimized validation and sanitization
 
-## [1.0.2] - 2024-XX-XX
+### Security
+- URL validation for generated URLs
+- Parameter sanitization
+- Bucket and region configuration validation
 
-### Fixed
-- Correções de bugs iniciais
+### Usability
+- More intuitive API with helper functions
+- Flexible configuration for different scenarios
+- Complete documentation with examples
 
-## [1.0.1] - 2024-XX-XX
-
-### Fixed
-- Correções de bugs iniciais
-
-## [1.0] - 2024-XX-XX
+## [2.1.0] - 2025-08-04
 
 ### Added
-- Versão inicial da biblioteca
-- Funcionalidades básicas do S3 
+- **Multiple Bucket Support**: Configure and use multiple S3 buckets simultaneously
+- **Enhanced Error Handling**: Better exception handling and error messages
+- **Stream Support**: Upload and download files using streams
+- **Large File Upload**: Multipart upload support for large files
+- **Object Metadata**: Get and set object metadata
+- **ACL Management**: Set and get object access control lists
+- **Bucket Statistics**: Get bucket size and object count
+
+### Changed
+- **Improved API**: More consistent method naming and parameters
+- **Better Documentation**: Enhanced examples and usage instructions
+
+## [2.0.0] - 2025-08-04
+
+### Breaking Changes
+- **Namespace Change**: Updated namespace structure for better organization
+- **Method Signatures**: Updated method signatures for better type safety
+- **Configuration**: Simplified configuration system
+
+### Added
+- **Type Hints**: Full PHP 8.0+ type hinting support
+- **Return Types**: Explicit return types for all methods
+- **Modern PHP Features**: Leveraging latest PHP features for better performance
+
+## [1.0.0] - 2025-08-04
+
+### Initial Release
+- Basic S3 operations (upload, download, delete)
+- Simple configuration system
+- Helper functions for common operations
+- Basic error handling 

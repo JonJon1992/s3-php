@@ -23,6 +23,10 @@ class Bucket
     protected string $url_cdn = '';
     protected ?int $timeOff = null;
     protected array $defaultMetadata = [];
+    protected array $urlCache = [];
+    protected array $endpointConfig = [];
+    protected bool $usePathStyle = false;
+    protected bool $useAccelerate = false;
 
     public function __construct(array $config)
     {
@@ -32,6 +36,11 @@ class Bucket
         $this->region = $config['region'];
         $this->access_key = $config['access_key'];
         $this->secret_key = $config['secret_key'];
+
+        // Configurações de endpoint
+        $this->url_cdn = $config['url_cdn'] ?? '';
+        $this->usePathStyle = $config['use_path_style'] ?? false;
+        $this->useAccelerate = $config['use_accelerate'] ?? false;
 
         $clientConfig = [
             'version' => 'latest',
@@ -43,13 +52,64 @@ class Bucket
             ]
         ];
 
-        // Add endpoint for local development
+        // Configuração de endpoint dinâmica
+        $this->configureEndpoint($clientConfig, $config);
+
+        $this->client = new S3Client($clientConfig);
+    }
+
+    protected function configureEndpoint(array &$clientConfig, array $config): void
+    {
+        // Endpoint customizado para desenvolvimento local
         if (isset($config['endpoint'])) {
             $clientConfig['endpoint'] = $config['endpoint'];
             $clientConfig['use_path_style_endpoint'] = true;
+            $this->usePathStyle = true;
+            $this->endpointConfig = [
+                'type' => 'custom',
+                'url' => $config['endpoint'],
+                'use_path_style' => true
+            ];
+            return;
         }
 
-        $this->client = new S3Client($clientConfig);
+        // S3 Transfer Acceleration
+        if ($this->useAccelerate) {
+            $clientConfig['use_accelerate_endpoint'] = true;
+            $this->endpointConfig = [
+                'type' => 'accelerate',
+                'url' => "https://{$this->bucket}.s3-accelerate.amazonaws.com"
+            ];
+            return;
+        }
+
+        // Endpoint padrão baseado na região
+        $endpoint = $this->getDefaultEndpoint();
+        $clientConfig['endpoint'] = $endpoint;
+        $this->endpointConfig = [
+            'type' => 'standard',
+            'url' => $endpoint,
+            'use_path_style' => $this->usePathStyle
+        ];
+    }
+
+    protected function getDefaultEndpoint(): string
+    {
+        // Endpoints específicos por região para melhor performance
+        $endpoints = [
+            'us-east-1' => 'https://s3.amazonaws.com',
+            'us-east-2' => 'https://s3.us-east-2.amazonaws.com',
+            'us-west-1' => 'https://s3.us-west-1.amazonaws.com',
+            'us-west-2' => 'https://s3.us-west-2.amazonaws.com',
+            'sa-east-1' => 'https://s3.sa-east-1.amazonaws.com',
+            'eu-west-1' => 'https://s3.eu-west-1.amazonaws.com',
+            'eu-central-1' => 'https://s3.eu-central-1.amazonaws.com',
+            'ap-southeast-1' => 'https://s3.ap-southeast-1.amazonaws.com',
+            'ap-southeast-2' => 'https://s3.ap-southeast-2.amazonaws.com',
+            'ap-northeast-1' => 'https://s3.ap-northeast-1.amazonaws.com',
+        ];
+
+        return $endpoints[$this->region] ?? "https://s3.{$this->region}.amazonaws.com";
     }
 
     protected function validateConfig(array $config): void
@@ -59,6 +119,18 @@ class Bucket
             if (!isset($config[$field]) || empty($config[$field])) {
                 throw new InvalidArgumentException("Missing required configuration: {$field}");
             }
+        }
+
+        // Validar formato do bucket usando match expression (PHP 8.0+)
+        $bucketPattern = '/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/';
+        if (!preg_match($bucketPattern, $config['bucket'])) {
+            throw new InvalidArgumentException("Invalid bucket name format");
+        }
+
+        // Validar região usando match expression (PHP 8.0+)
+        $regionPattern = '/^[a-z0-9-]+$/';
+        if (!preg_match($regionPattern, $config['region'])) {
+            throw new InvalidArgumentException("Invalid region format");
         }
     }
 
@@ -103,10 +175,27 @@ class Bucket
         return $this->defaultMetadata;
     }
 
+    public function setCdnUrl(string $cdnUrl): self
+    {
+        $this->url_cdn = rtrim($cdnUrl, '/');
+        return $this;
+    }
+
+    public function getCdnUrl(): string
+    {
+        return $this->url_cdn;
+    }
+
+    public function clearUrlCache(): self
+    {
+        $this->urlCache = [];
+        return $this;
+    }
+
     public function isExistBucket(): bool
     {
         try {
-            return $this->client->doesBucketExist($this->bucket);
+            return $this->client->doesBucketExistV2($this->bucket, false);
         } catch (Exception $e) {
             return false;
         }
@@ -137,9 +226,7 @@ class Bucket
                 $deleteParams = [
                     'Bucket' => $this->bucket,
                     'Delete' => [
-                        'Objects' => array_map(function ($obj) {
-                            return ['Key' => $obj['Key']];
-                        }, $objects['Contents'])
+                        'Objects' => array_map(fn($obj) => ['Key' => $obj['Key']], $objects['Contents'])
                     ]
                 ];
                 $this->client->deleteObjects($deleteParams);
@@ -161,6 +248,7 @@ class Bucket
         }
 
         $root = trim($root);
+        // Usar str_starts_with e str_ends_with (PHP 8.0+)
         if (str_starts_with($root, '/')) {
             $root = substr($root, 1);
         }
@@ -181,7 +269,7 @@ class Bucket
         return $data['Body']->getContents();
     }
 
-    public function getStream(string $file_path)
+    public function getStream(string $file_path): mixed
     {
         $data = $this->getObject($this->path($file_path));
         if (!$data) {
@@ -194,6 +282,7 @@ class Bucket
     {
         $path = trim($path);
 
+        // Usar str_starts_with e str_ends_with (PHP 8.0+)
         if (str_starts_with($path, '/')) {
             $path = substr($path, 1);
         }
@@ -227,7 +316,7 @@ class Bucket
     public function existObject(string $file_path): bool
     {
         try {
-            return $this->client->doesObjectExist($this->bucket, $this->path($file_path));
+            return $this->client->doesObjectExistV2($this->bucket, $this->path($file_path), false);
         } catch (Exception $e) {
             return false;
         }
@@ -260,16 +349,17 @@ class Bucket
             }
 
             if (!$recursive && isset($page['CommonPrefixes'])) {
-                foreach ($page['CommonPrefixes'] as $prefix) {
-                    $files[] = rtrim(str_replace($prefix, '', $prefix['Prefix']), '/');
+                foreach ($page['CommonPrefixes'] as $commonPrefix) {
+                    $files[] = rtrim(str_replace($prefix, '', $commonPrefix['Prefix']), '/');
                 }
             }
         }
 
-        return array_filter($files);
+        // Usar array_filter sem callback para remover valores vazios (PHP 8.0+)
+        return array_values(array_filter($files));
     }
 
-    public function put(string $file_path, $file_content, array $metadata = []): Result
+    public function put(string $file_path, mixed $file_content, array $metadata = []): Result
     {
         $object = [
             'Bucket' => $this->bucket,
@@ -365,9 +455,8 @@ class Bucket
 
     public function deleteMultiple(array $file_paths): Result
     {
-        $objects = array_map(function ($path) {
-            return ['Key' => $this->path($path)];
-        }, $file_paths);
+        // Usar arrow function (PHP 7.4+) para melhor performance
+        $objects = array_map(fn($path) => ['Key' => $this->path($path)], $file_paths);
 
         return $this->client->deleteObjects([
             'Bucket' => $this->bucket,
@@ -419,13 +508,86 @@ class Bucket
 
     public function endpoint(bool $https = true): string
     {
+        // Usar CDN se configurado
+        if (!empty($this->url_cdn)) {
+            return $this->url_cdn;
+        }
+
         $scheme = $https ? 'https' : 'http';
+
+        // Endpoint customizado
+        if ($this->endpointConfig['type'] === 'custom') {
+            return $this->endpointConfig['url'];
+        }
+
+        // S3 Transfer Acceleration
+        if ($this->endpointConfig['type'] === 'accelerate') {
+            return $this->endpointConfig['url'];
+        }
+
+        // Endpoint padrão
+        if ($this->usePathStyle) {
+            return "{$scheme}://s3.{$this->region}.amazonaws.com/{$this->bucket}";
+        }
+
         return "{$scheme}://{$this->bucket}.s3.{$this->region}.amazonaws.com";
     }
 
-    public function getObjectUrl(string $file_path, bool $https = true): string
+    public function getObjectUrl(string $file_path, bool $https = true, bool $useCdn = true): string
     {
-        return $this->endpoint($https) . '/' . $this->path($file_path);
+        $cacheKey = "url_{$file_path}_{$https}_{$useCdn}";
+
+        if (isset($this->urlCache[$cacheKey])) {
+            return $this->urlCache[$cacheKey];
+        }
+
+        $file_path = $this->path($file_path);
+        $baseUrl = $this->endpoint($https);
+
+        // Usar CDN se configurado e solicitado
+        if ($useCdn && !empty($this->url_cdn)) {
+            $url = $this->url_cdn . '/' . $file_path;
+        } else {
+            $url = $baseUrl . '/' . $file_path;
+        }
+
+        // Validar e sanitizar URL
+        $url = $this->sanitizeUrl($url);
+
+        // Cache da URL
+        $this->urlCache[$cacheKey] = $url;
+
+        return $url;
+    }
+
+    public function getDownloadUrl(string $file_path, int $expiration = 3600, array $options = []): string
+    {
+        $cacheKey = "download_{$file_path}_{$expiration}_" . md5(serialize($options));
+
+        if (isset($this->urlCache[$cacheKey])) {
+            return $this->urlCache[$cacheKey];
+        }
+
+        $defaultOptions = [
+            'response_content_disposition' => 'attachment',
+            'response_content_type' => 'application/octet-stream',
+            'response_cache_control' => 'no-cache'
+        ];
+
+        $options = array_merge($defaultOptions, $options);
+
+        $cmd = $this->client->getCommand('GetObject', array_merge([
+            'Bucket' => $this->bucket,
+            'Key' => $this->path($file_path)
+        ], $options));
+
+        $request = $this->client->createPresignedRequest($cmd, "+{$expiration} seconds");
+        $url = (string) $request->getUri();
+
+        // Cache da URL
+        $this->urlCache[$cacheKey] = $url;
+
+        return $url;
     }
 
     public function time(): int
@@ -460,15 +622,53 @@ class Bucket
         return sprintf('%s/%s?AWSAccessKeyId=%s&Expires=%u&Signature=%s', $url, $file_path, $key, $exp, $signature);
     }
 
-    public function presignedUrl(string $file_path, int $exp = 3600, string $method = 'GET'): string
+    public function presignedUrl(string $file_path, int $exp = 3600, string $method = 'GET', array $options = []): string
     {
-        $cmd = $this->client->getCommand($method, [
+        $cacheKey = "presigned_{$file_path}_{$exp}_{$method}_" . md5(serialize($options));
+
+        if (isset($this->urlCache[$cacheKey])) {
+            return $this->urlCache[$cacheKey];
+        }
+
+        $params = [
             'Bucket' => $this->bucket,
             'Key' => $this->path($file_path)
-        ]);
+        ];
 
+        // Adicionar opções customizadas
+        if (!empty($options)) {
+            $params = array_merge($params, $options);
+        }
+
+        $cmd = $this->client->getCommand($method, $params);
         $request = $this->client->createPresignedRequest($cmd, "+{$exp} seconds");
-        return (string) $request->getUri();
+        $url = (string) $request->getUri();
+
+        // Cache da URL
+        $this->urlCache[$cacheKey] = $url;
+
+        return $url;
+    }
+
+    public function presignedPostUrl(string $file_path, int $exp = 3600, array $conditions = []): array
+    {
+        $params = [
+            'Bucket' => $this->bucket,
+            'Key' => $this->path($file_path),
+            'Expires' => time() + $exp
+        ];
+
+        if (!empty($conditions)) {
+            $params['Conditions'] = $conditions;
+        }
+
+        $cmd = $this->client->getCommand('PostObject', $params);
+        $request = $this->client->createPresignedRequest($cmd, "+{$exp} seconds");
+
+        return [
+            'url' => (string) $request->getUri(),
+            'fields' => $request->getBody()->getContents()
+        ];
     }
 
     protected function hash(string $string): string
@@ -483,6 +683,19 @@ class Bucket
         return base64_encode($string);
     }
 
+    protected function sanitizeUrl(string $url): string
+    {
+        // Remover caracteres inválidos
+        $sanitizedUrl = filter_var($url, FILTER_SANITIZE_URL);
+
+        // Validar URL
+        if ($sanitizedUrl === false || !filter_var($sanitizedUrl, FILTER_VALIDATE_URL)) {
+            throw new InvalidArgumentException("Invalid URL generated: {$url}");
+        }
+
+        return $sanitizedUrl;
+    }
+
     public function getBucketSize(): int
     {
         $size = 0;
@@ -492,9 +705,8 @@ class Bucket
 
         foreach ($paginator as $page) {
             if (isset($page['Contents'])) {
-                foreach ($page['Contents'] as $object) {
-                    $size += $object['Size'];
-                }
+                // Usar array_sum com array_column para melhor performance (PHP 7.0+)
+                $size += array_sum(array_column($page['Contents'], 'Size'));
             }
         }
 
@@ -515,5 +727,25 @@ class Bucket
         }
 
         return $count;
+    }
+
+    public function getEndpointConfig(): array
+    {
+        return $this->endpointConfig;
+    }
+
+    public function isUsingCdn(): bool
+    {
+        return !empty($this->url_cdn);
+    }
+
+    public function isUsingAccelerate(): bool
+    {
+        return $this->useAccelerate;
+    }
+
+    public function isUsingPathStyle(): bool
+    {
+        return $this->usePathStyle;
     }
 }

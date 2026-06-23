@@ -5,10 +5,10 @@ parameters:
         - tests
     excludePaths:
         - vendor
-    checkMissingIterableValueType: false
-    checkGenericClassInNonGenericObjectType: false
     ignoreErrors:
-        - '#Call to an undefined method [a-zA-Z0-9\\_]+::getContents\(\)#'
+        # Substitui o antigo checkMissingIterableValueType: false (removido no PHPStan 2).
+        # A biblioteca não anota genéricos de array em sua API pública.
+        - identifier: missingType.iterableValue
     tmpDir: .phpstan
     parallel:
         maximumNumberOfProcesses: 4 

@@ -15,7 +15,7 @@ class S3Test extends TestCase
         S3::singleton()->clearConfigs();
     }
 
-    public function testSingletonReturnsSameInstance()
+    public function testSingletonReturnsSameInstance(): void
     {
         $instance1 = S3::singleton();
         $instance2 = S3::singleton();
@@ -23,7 +23,7 @@ class S3Test extends TestCase
         $this->assertSame($instance1, $instance2);
     }
 
-    public function testUseMethodWithValidConfig()
+    public function testUseMethodWithValidConfig(): void
     {
         $s3 = S3::singleton();
         $config = [
@@ -40,7 +40,7 @@ class S3Test extends TestCase
         $this->assertEquals($config, $s3->getConfig('test'));
     }
 
-    public function testUseMethodWithEmptyAlias()
+    public function testUseMethodWithEmptyAlias(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Alias cannot be empty');
@@ -48,7 +48,7 @@ class S3Test extends TestCase
         S3::singleton()->use('', []);
     }
 
-    public function testUseMethodWithMissingRequiredKeys()
+    public function testUseMethodWithMissingRequiredKeys(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Missing required configuration key: bucket');
@@ -60,7 +60,7 @@ class S3Test extends TestCase
         ]);
     }
 
-    public function testBucketMethodWithValidAlias()
+    public function testBucketMethodWithValidAlias(): void
     {
         $s3 = S3::singleton();
         $config = [
@@ -78,7 +78,7 @@ class S3Test extends TestCase
         $this->assertEquals('us-east-1', $bucket->getRegion());
     }
 
-    public function testBucketMethodWithDefaultAlias()
+    public function testBucketMethodWithDefaultAlias(): void
     {
         $s3 = S3::singleton();
         $config = [
@@ -95,7 +95,7 @@ class S3Test extends TestCase
         $this->assertEquals('test-bucket', $bucket->getBucket());
     }
 
-    public function testBucketMethodWithNoConfig()
+    public function testBucketMethodWithNoConfig(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('No S3 configuration found. Use S3::use() to configure first.');
@@ -103,7 +103,7 @@ class S3Test extends TestCase
         S3::singleton()->bucket();
     }
 
-    public function testBucketMethodWithInvalidAlias()
+    public function testBucketMethodWithInvalidAlias(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("S3 configuration for alias 'invalid' not found");
@@ -111,7 +111,7 @@ class S3Test extends TestCase
         S3::singleton()->bucket('invalid');
     }
 
-    public function testGetConfigMethod()
+    public function testGetConfigMethod(): void
     {
         $s3 = S3::singleton();
         $config = [
@@ -127,7 +127,7 @@ class S3Test extends TestCase
         $this->assertEquals($config, $retrievedConfig);
     }
 
-    public function testGetConfigMethodWithInvalidAlias()
+    public function testGetConfigMethodWithInvalidAlias(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Configuration for alias 'invalid' not found");
@@ -135,7 +135,7 @@ class S3Test extends TestCase
         S3::singleton()->getConfig('invalid');
     }
 
-    public function testHasConfigMethod()
+    public function testHasConfigMethod(): void
     {
         $s3 = S3::singleton();
 
@@ -151,7 +151,7 @@ class S3Test extends TestCase
         $this->assertTrue($s3->hasConfig('test'));
     }
 
-    public function testRemoveConfigMethod()
+    public function testRemoveConfigMethod(): void
     {
         $s3 = S3::singleton();
         $config = [
@@ -169,7 +169,7 @@ class S3Test extends TestCase
         $this->assertFalse($s3->hasConfig('test'));
     }
 
-    public function testClearConfigsMethod()
+    public function testClearConfigsMethod(): void
     {
         $s3 = S3::singleton();
 
@@ -196,7 +196,7 @@ class S3Test extends TestCase
         $this->assertFalse($s3->hasConfig('test2'));
     }
 
-    public function testBucketsMethod()
+    public function testBucketsMethod(): void
     {
         $s3 = S3::singleton();
 

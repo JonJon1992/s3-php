@@ -149,11 +149,28 @@ try {
     $bucket->clearUrlCache();
     echo "🧹 Cache de URLs limpo\n";
 
-    // 20. Deletar arquivos de teste
+    // 20. Operações concorrentes (CommandPool)
+    $upload = $bucket->uploadMultiple([
+        'teste/lote-1.txt' => 'conteúdo 1',
+        'teste/lote-2.txt' => 'conteúdo 2',
+    ], [], 5);
+    echo "⚡ Uploads concorrentes: " . count($upload['results']) . " ok, "
+        . count($upload['errors']) . " erros\n";
+
+    $download = $bucket->downloadMultiple(['teste/lote-1.txt', 'teste/lote-2.txt'], 5);
+    echo "⚡ Downloads concorrentes: " . count($download['results']) . " arquivos\n";
+
+    // 21. Estatísticas do bucket (uma única varredura)
+    $stats = $bucket->getBucketStats();
+    echo "📊 Bucket: {$stats['count']} objetos, {$stats['size']} bytes\n";
+
+    // 22. Deletar arquivos de teste
     $bucket->deleteMultiple([
         'teste/arquivo.txt',
         'teste/arquivo-copia.txt',
-        'teste/arquivo-com-metadados.txt'
+        'teste/arquivo-com-metadados.txt',
+        'teste/lote-1.txt',
+        'teste/lote-2.txt'
     ]);
     echo "🗑️ Arquivos de teste deletados\n";
 

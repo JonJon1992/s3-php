@@ -2,13 +2,14 @@
 
 namespace S3\Lib;
 
+use Aws\CommandPool;
 use Aws\Credentials\Credentials;
 use Aws\Result;
+use Aws\ResultInterface;
 use Aws\S3\S3Client;
 use Aws\S3\Exception\S3Exception;
 use Aws\S3\MultipartUploader;
-use Aws\S3\ObjectUploader;
-use Aws\Exception\AwsException;
+use Aws\S3\PostObjectV4;
 use Exception;
 use InvalidArgumentException;
 
@@ -27,6 +28,7 @@ class Bucket
     protected array $endpointConfig = [];
     protected bool $usePathStyle = false;
     protected bool $useAccelerate = false;
+    protected ?string $defaultAcl = null;
 
     public function __construct(array $config)
     {
@@ -41,6 +43,12 @@ class Bucket
         $this->url_cdn = $config['url_cdn'] ?? '';
         $this->usePathStyle = $config['use_path_style'] ?? false;
         $this->useAccelerate = $config['use_accelerate'] ?? false;
+
+        // ACL padrão para uploads. Por padrão (null) nenhum header ACL é
+        // enviado — compatível com buckets que têm ACLs desabilitadas
+        // (Object Ownership = "Bucket owner enforced"). Defina 'acl' na
+        // configuração (ex.: S3::ACL_PUBLIC_READ) se precisar de ACLs.
+        $this->defaultAcl = $config['acl'] ?? null;
 
         $clientConfig = [
             'version' => 'latest',
@@ -164,6 +172,17 @@ class Bucket
         return $this->secret_key;
     }
 
+    public function setDefaultAcl(?string $acl): self
+    {
+        $this->defaultAcl = $acl;
+        return $this;
+    }
+
+    public function getDefaultAcl(): ?string
+    {
+        return $this->defaultAcl;
+    }
+
     public function setDefaultMetadata(array $metadata): self
     {
         $this->defaultMetadata = $metadata;
@@ -220,16 +239,23 @@ class Bucket
     public function deleteBucket(bool $force = false): Result
     {
         if ($force) {
-            // Delete all objects first
-            $objects = $this->client->listObjects(['Bucket' => $this->bucket]);
-            if ($objects['Contents']) {
-                $deleteParams = [
+            // Apagar todos os objetos primeiro, paginando para suportar
+            // buckets com mais de 1000 objetos.
+            $paginator = $this->client->getPaginator('ListObjectsV2', [
+                'Bucket' => $this->bucket
+            ]);
+
+            foreach ($paginator as $page) {
+                if (empty($page['Contents'])) {
+                    continue;
+                }
+
+                $this->client->deleteObjects([
                     'Bucket' => $this->bucket,
                     'Delete' => [
-                        'Objects' => array_map(fn($obj) => ['Key' => $obj['Key']], $objects['Contents'])
+                        'Objects' => array_map(fn($obj) => ['Key' => $obj['Key']], $page['Contents'])
                     ]
-                ];
-                $this->client->deleteObjects($deleteParams);
+                ]);
             }
         }
 
@@ -338,19 +364,24 @@ class Bucket
 
         $paginator = $this->client->getPaginator('ListObjectsV2', $params);
 
+        $prefixLen = strlen($prefix);
+
         foreach ($paginator as $page) {
             if (isset($page['Contents'])) {
                 foreach ($page['Contents'] as $object) {
                     $key = $object['Key'];
-                    if ($key !== $prefix) {
-                        $files[] = str_replace($prefix, '', $key);
+                    if ($key !== $prefix && str_starts_with($key, $prefix)) {
+                        $files[] = substr($key, $prefixLen);
                     }
                 }
             }
 
             if (!$recursive && isset($page['CommonPrefixes'])) {
                 foreach ($page['CommonPrefixes'] as $commonPrefix) {
-                    $files[] = rtrim(str_replace($prefix, '', $commonPrefix['Prefix']), '/');
+                    $commonPrefixKey = $commonPrefix['Prefix'];
+                    if (str_starts_with($commonPrefixKey, $prefix)) {
+                        $files[] = rtrim(substr($commonPrefixKey, $prefixLen), '/');
+                    }
                 }
             }
         }
@@ -365,11 +396,15 @@ class Bucket
             'Bucket' => $this->bucket,
             'Key' => $this->path($file_path),
             'Body' => $file_content,
-            'ACL' => S3::ACL_PUBLIC_READ
         ];
 
         // Merge default metadata
         $metadata = array_merge($this->defaultMetadata, $metadata);
+
+        // Aplicar ACL padrão apenas se configurada e não sobrescrita na chamada
+        if ($this->defaultAcl !== null && !isset($metadata['ACL'])) {
+            $object['ACL'] = $this->defaultAcl;
+        }
 
         if (!empty($metadata)) {
             $object = array_merge($object, $metadata);
@@ -411,12 +446,17 @@ class Bucket
         $contentType = mime_content_type($file_path_local);
         $metadata['Content-Type'] = $contentType;
 
-        $uploader = new MultipartUploader($this->client, $file_path_local, [
+        $uploaderConfig = [
             'bucket' => $this->bucket,
             'key' => $this->path($file_path),
-            'acl' => S3::ACL_PUBLIC_READ,
             'metadata' => $metadata
-        ]);
+        ];
+
+        if ($this->defaultAcl !== null) {
+            $uploaderConfig['acl'] = $this->defaultAcl;
+        }
+
+        $uploader = new MultipartUploader($this->client, $file_path_local, $uploaderConfig);
 
         return $uploader->upload();
     }
@@ -427,8 +467,11 @@ class Bucket
             'Bucket' => $this->bucket,
             'Key' => $this->path($destination_path),
             'CopySource' => $this->bucket . '/' . $this->path($source_path),
-            'ACL' => S3::ACL_PUBLIC_READ
         ];
+
+        if ($this->defaultAcl !== null) {
+            $params['ACL'] = $this->defaultAcl;
+        }
 
         if (!empty($metadata)) {
             $params['Metadata'] = $metadata;
@@ -453,17 +496,125 @@ class Bucket
         ]);
     }
 
-    public function deleteMultiple(array $file_paths): Result
+    /**
+     * Apaga múltiplos objetos. O DeleteObjects do S3 aceita no máximo 1000
+     * chaves por requisição, então a lista é dividida em lotes.
+     *
+     * @param array<int, string> $file_paths
+     * @return array<int, Result> Um Result por lote
+     */
+    public function deleteMultiple(array $file_paths): array
     {
-        // Usar arrow function (PHP 7.4+) para melhor performance
-        $objects = array_map(fn($path) => ['Key' => $this->path($path)], $file_paths);
+        $results = [];
 
-        return $this->client->deleteObjects([
-            'Bucket' => $this->bucket,
-            'Delete' => [
-                'Objects' => $objects
-            ]
+        foreach (array_chunk($file_paths, 1000) as $chunk) {
+            $objects = array_map(fn($path) => ['Key' => $this->path($path)], $chunk);
+
+            $results[] = $this->client->deleteObjects([
+                'Bucket' => $this->bucket,
+                'Delete' => [
+                    'Objects' => $objects
+                ]
+            ]);
+        }
+
+        return $results;
+    }
+
+    /**
+     * Envia múltiplos objetos de forma concorrente usando CommandPool.
+     *
+     * @param array<string, mixed> $files       Mapa caminho => conteúdo (string|resource)
+     * @param array<string, mixed> $metadata    Metadados aplicados a todos os objetos
+     * @param int                  $concurrency Número de uploads simultâneos
+     * @return array{results: array<string, ResultInterface>, errors: array<string, \Throwable>}
+     */
+    public function uploadMultiple(array $files, array $metadata = [], int $concurrency = 5): array
+    {
+        $metadata = array_merge($this->defaultMetadata, $metadata);
+        $keys = array_keys($files);
+        $values = array_values($files);
+
+        $commands = function () use ($values, $keys, $metadata) {
+            foreach ($values as $i => $content) {
+                $args = [
+                    'Bucket' => $this->bucket,
+                    'Key' => $this->path($keys[$i]),
+                    'Body' => $content,
+                ];
+
+                if ($this->defaultAcl !== null && !isset($metadata['ACL'])) {
+                    $args['ACL'] = $this->defaultAcl;
+                }
+
+                if (!empty($metadata)) {
+                    $args = array_merge($args, $metadata);
+                }
+
+                yield $this->client->getCommand('PutObject', $args);
+            }
+        };
+
+        return $this->runPool($commands(), $concurrency, $keys, fn(ResultInterface $r) => $r);
+    }
+
+    /**
+     * Baixa múltiplos objetos de forma concorrente usando CommandPool.
+     *
+     * @param array<int, string> $keys        Caminhos dos objetos
+     * @param int                 $concurrency Número de downloads simultâneos
+     * @return array{results: array<string, string>, errors: array<string, \Throwable>}
+     */
+    public function downloadMultiple(array $keys, int $concurrency = 5): array
+    {
+        $keys = array_values($keys);
+
+        $commands = function () use ($keys) {
+            foreach ($keys as $key) {
+                yield $this->client->getCommand('GetObject', [
+                    'Bucket' => $this->bucket,
+                    'Key' => $this->path($key),
+                ]);
+            }
+        };
+
+        return $this->runPool(
+            $commands(),
+            $concurrency,
+            $keys,
+            fn(ResultInterface $r) => $r['Body']->getContents()
+        );
+    }
+
+    /**
+     * Executa um CommandPool, agregando resultados e erros pela chave original.
+     *
+     * O CommandPool entrega o índice inteiro da iteração nos callbacks; ele é
+     * mapeado de volta para a chave original via $keys.
+     *
+     * @param \Iterator<int, \Aws\CommandInterface> $commands
+     * @param array<int, string>                    $keys     Chaves na ordem dos comandos
+     * @param callable                              $onResult Transforma cada Result
+     * @return array{results: array<string, mixed>, errors: array<string, \Throwable>}
+     */
+    protected function runPool(\Iterator $commands, int $concurrency, array $keys, callable $onResult): array
+    {
+        $results = [];
+        $errors = [];
+
+        $pool = new CommandPool($this->client, $commands, [
+            'concurrency' => max(1, $concurrency),
+            'fulfilled' => function (ResultInterface $result, int $index) use (&$results, $keys, $onResult): void {
+                $results[$keys[$index]] = $onResult($result);
+            },
+            'rejected' => function (\Throwable $reason, int $index) use (&$errors, $keys): void {
+                $errors[$keys[$index]] = $reason;
+            },
         ]);
+
+        $pool->promise()->wait();
+
+        return ['results' => $results, 'errors' => $errors];
     }
 
     public function getObjectMetadata(string $file_path): ?array
@@ -535,13 +686,13 @@ class Bucket
 
     public function getObjectUrl(string $file_path, bool $https = true, bool $useCdn = true): string
     {
+        $file_path = $this->path($file_path);
         $cacheKey = "url_{$file_path}_{$https}_{$useCdn}";
 
         if (isset($this->urlCache[$cacheKey])) {
             return $this->urlCache[$cacheKey];
         }
 
-        $file_path = $this->path($file_path);
         $baseUrl = $this->endpoint($https);
 
         // Usar CDN se configurado e solicitado
@@ -562,7 +713,8 @@ class Bucket
 
     public function getDownloadUrl(string $file_path, int $expiration = 3600, array $options = []): string
     {
-        $cacheKey = "download_{$file_path}_{$expiration}_" . md5(serialize($options));
+        $resolvedPath = $this->path($file_path);
+        $cacheKey = "download_{$resolvedPath}_{$expiration}_" . md5(serialize($options));
 
         if (isset($this->urlCache[$cacheKey])) {
             return $this->urlCache[$cacheKey];
@@ -578,7 +730,7 @@ class Bucket
 
         $cmd = $this->client->getCommand('GetObject', array_merge([
             'Bucket' => $this->bucket,
-            'Key' => $this->path($file_path)
+            'Key' => $resolvedPath
         ], $options));
 
         $request = $this->client->createPresignedRequest($cmd, "+{$expiration} seconds");
@@ -610,21 +762,20 @@ class Bucket
         }
     }
 
+    /**
+     * @deprecated 3.0.0 Usava AWS Signature V2, descontinuada pela AWS e não
+     *             aceita na maioria das regiões. Agora delega para presignedUrl()
+     *             (SigV4). Use presignedUrl() diretamente.
+     */
     public function fileUrl(string $file_path, int $exp = 3600, bool $https = true): string
     {
-        $file_path = $this->path(str_replace(['%2F', '%2B'], ['/', '+'], rawurlencode($file_path)));
-        $url = $this->endpoint($https);
-        $key = $this->access_key;
-        $exp = $this->time() + $exp;
-
-        $signature = urlencode($this->hash("GET\n\n\n{$exp}\n/{$this->bucket}/{$file_path}"));
-
-        return sprintf('%s/%s?AWSAccessKeyId=%s&Expires=%u&Signature=%s', $url, $file_path, $key, $exp, $signature);
+        return $this->presignedUrl($file_path, $exp);
     }
 
     public function presignedUrl(string $file_path, int $exp = 3600, string $method = 'GET', array $options = []): string
     {
-        $cacheKey = "presigned_{$file_path}_{$exp}_{$method}_" . md5(serialize($options));
+        $resolvedPath = $this->path($file_path);
+        $cacheKey = "presigned_{$resolvedPath}_{$exp}_{$method}_" . md5(serialize($options));
 
         if (isset($this->urlCache[$cacheKey])) {
             return $this->urlCache[$cacheKey];
@@ -632,7 +783,7 @@ class Bucket
 
         $params = [
             'Bucket' => $this->bucket,
-            'Key' => $this->path($file_path)
+            'Key' => $resolvedPath
         ];
 
         // Adicionar opções customizadas
@@ -650,37 +801,34 @@ class Bucket
         return $url;
     }
 
-    public function presignedPostUrl(string $file_path, int $exp = 3600, array $conditions = []): array
+    /**
+     * Gera os dados para upload direto via formulário POST (presigned POST).
+     *
+     * @param string $file_path  Caminho/chave do objeto no bucket
+     * @param int    $exp        Expiração em segundos
+     * @param array  $conditions Condições da policy (ex.: ['content-length-range', 1, 10485760])
+     * @param array  $formInputs Campos pré-preenchidos do formulário (ex.: ['acl' => 'private'])
+     * @return array{url: string, fields: array<string, string>, attributes: array<string, string>}
+     */
+    public function presignedPostUrl(string $file_path, int $exp = 3600, array $conditions = [], array $formInputs = []): array
     {
-        $params = [
-            'Bucket' => $this->bucket,
-            'Key' => $this->path($file_path),
-            'Expires' => time() + $exp
-        ];
+        $formInputs = array_merge(['key' => $this->path($file_path)], $formInputs);
 
-        if (!empty($conditions)) {
-            $params['Conditions'] = $conditions;
-        }
+        $postObject = new PostObjectV4(
+            $this->client,
+            $this->bucket,
+            $formInputs,
+            $conditions,
+            "+{$exp} seconds"
+        );
 
-        $cmd = $this->client->getCommand('PostObject', $params);
-        $request = $this->client->createPresignedRequest($cmd, "+{$exp} seconds");
+        $attributes = $postObject->getFormAttributes();
 
         return [
-            'url' => (string) $request->getUri(),
-            'fields' => $request->getBody()->getContents()
+            'url' => $attributes['action'],
+            'fields' => $postObject->getFormInputs(),
+            'attributes' => $attributes,
         ];
-    }
-
-    protected function hash(string $string): string
-    {
-        if (extension_loaded('hash')) {
-            $string = hash_hmac('sha1', $string, $this->secret_key, true);
-        } else {
-            $secret = str_pad($this->secret_key, 64, chr(0x00));
-            $string = pack('H*', sha1(($secret ^ (str_repeat(chr(0x36), 64))) . $string));
-            $string = pack('H*', sha1(($secret ^ (str_repeat(chr(0x5c), 64))) . $string));
-        }
-        return base64_encode($string);
     }
 
     protected function sanitizeUrl(string $url): string
@@ -696,37 +844,39 @@ class Bucket
         return $sanitizedUrl;
     }
 
-    public function getBucketSize(): int
+    /**
+     * Retorna tamanho total (bytes) e contagem de objetos em uma única
+     * varredura do bucket, evitando listar duas vezes.
+     *
+     * @return array{size: int, count: int}
+     */
+    public function getBucketStats(): array
     {
         $size = 0;
-        $paginator = $this->client->getPaginator('ListObjectsV2', [
-            'Bucket' => $this->bucket
-        ]);
-
-        foreach ($paginator as $page) {
-            if (isset($page['Contents'])) {
-                // Usar array_sum com array_column para melhor performance (PHP 7.0+)
-                $size += array_sum(array_column($page['Contents'], 'Size'));
-            }
-        }
-
-        return $size;
-    }
-
-    public function getBucketObjectCount(): int
-    {
         $count = 0;
+
         $paginator = $this->client->getPaginator('ListObjectsV2', [
             'Bucket' => $this->bucket
         ]);
 
         foreach ($paginator as $page) {
-            if (isset($page['Contents'])) {
+            if (!empty($page['Contents'])) {
+                $size += array_sum(array_column($page['Contents'], 'Size'));
                 $count += count($page['Contents']);
             }
         }
 
-        return $count;
+        return ['size' => $size, 'count' => $count];
+    }
+
+    public function getBucketSize(): int
+    {
+        return $this->getBucketStats()['size'];
+    }
+
+    public function getBucketObjectCount(): int
+    {
+        return $this->getBucketStats()['count'];
     }
 
     public function getEndpointConfig(): array

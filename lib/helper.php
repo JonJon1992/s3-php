@@ -226,6 +226,50 @@ if (!function_exists('s3_get')) {
     }
 }
 
+if (!function_exists('s3_upload_multiple')) {
+    /**
+     * Upload concorrente de múltiplos objetos.
+     *
+     * @param array<string, mixed> $files Mapa caminho => conteúdo
+     * @param array<string, mixed> $metadata
+     * @param int $concurrency
+     * @param string|null $alias
+     * @return array{results: array<string, \Aws\ResultInterface>, errors: array<string, \Throwable>}
+     */
+    function s3_upload_multiple(array $files, array $metadata = [], int $concurrency = 5, ?string $alias = null): array
+    {
+        return s3($alias)->uploadMultiple($files, $metadata, $concurrency);
+    }
+}
+
+if (!function_exists('s3_download_multiple')) {
+    /**
+     * Download concorrente de múltiplos objetos.
+     *
+     * @param array<int, string> $keys
+     * @param int $concurrency
+     * @param string|null $alias
+     * @return array{results: array<string, string>, errors: array<string, \Throwable>}
+     */
+    function s3_download_multiple(array $keys, int $concurrency = 5, ?string $alias = null): array
+    {
+        return s3($alias)->downloadMultiple($keys, $concurrency);
+    }
+}
+
+if (!function_exists('s3_bucket_stats')) {
+    /**
+     * Estatísticas do bucket (tamanho e contagem) em uma única varredura.
+     *
+     * @param string|null $alias
+     * @return array{size: int, count: int}
+     */
+    function s3_bucket_stats(?string $alias = null): array
+    {
+        return s3($alias)->getBucketStats();
+    }
+}
+
 if (!function_exists('s3_metadata')) {
     /**
      * Get file metadata from S3

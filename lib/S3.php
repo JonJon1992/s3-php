@@ -2,8 +2,6 @@
 
 namespace S3\Lib;
 
-use Aws\S3\S3Client;
-use Aws\S3\S3MultiRegionClient;
 use InvalidArgumentException;
 
 class S3
@@ -23,7 +21,6 @@ class S3
 
     protected array $config = [];
     protected array $buckets = [];
-    protected ?S3Client $defaultClient = null;
 
     public static function singleton(): self
     {
@@ -56,12 +53,11 @@ class S3
     public function bucket(?string $alias = null): Bucket
     {
         if (!$alias) {
-            $keys = array_keys($this->config);
-            if (empty($keys)) {
+            if (empty($this->config)) {
                 throw new InvalidArgumentException('No S3 configuration found. Use S3::use() to configure first.');
             }
-            // Usar array_shift para obter o primeiro elemento (PHP 7.0+)
-            $alias = array_shift($keys);
+            // Primeiro alias configurado
+            $alias = array_key_first($this->config);
         }
 
         if (!isset($this->config[$alias])) {

@@ -4,7 +4,47 @@ Uma biblioteca PHP simples e eficiente para trabalhar com Amazon S3, construída
 
 ## Versão
 
-**2.4.0** - Compatível com AWS SDK PHP ^3.350
+**3.0.0** - Compatível com AWS SDK PHP ^3.350
+
+## 🚀 Novidades na Versão 3.0.0
+
+### ⚠️ Mudanças Importantes (Breaking Changes)
+- **PHP 8.5+**: Versão mínima do PHP atualizada para 8.5
+- **ACL não é mais `public-read` por padrão**: Uploads (`put`, `putFile`, `copy`, `uploadLargeFile`) não enviam mais o header ACL automaticamente. Isso garante compatibilidade com buckets que têm ACLs desabilitadas (Object Ownership = *Bucket owner enforced*, padrão na AWS atual). Para tornar objetos públicos, configure `'acl' => S3::ACL_PUBLIC_READ` ou use `setDefaultAcl()`.
+
+### 🐛 Correções
+- **`presignedPostUrl()`**: Reescrita usando `Aws\S3\PostObjectV4` (a implementação anterior usava um comando inexistente e não funcionava). Agora retorna `url`, `fields` e `attributes`.
+- **`fileUrl()` depreciada**: Usava AWS Signature V2 (descontinuada). Agora delega para `presignedUrl()` (SigV4). Prefira `presignedUrl()`.
+- **`getFiles()`**: Corrigido bug onde `str_replace` removia o prefixo de qualquer posição da chave (agora usa remoção ancorada no início).
+- **`deleteBucket(force: true)`**: Agora pagina a listagem, suportando buckets com mais de 1000 objetos e tratando buckets vazios corretamente.
+- **Cache de URL**: As chaves de cache agora consideram o `root()`, evitando retorno de URL incorreta ao alternar o prefixo raiz.
+
+### ✨ Configuração de ACL
+
+```php
+// Objetos privados (padrão) — nenhum header ACL é enviado
+s3_config('default', [
+    'bucket' => 'meu-bucket',
+    'region' => 'sa-east-1',
+    'access_key' => 'SUA_ACCESS_KEY',
+    'secret_key' => 'SUA_SECRET_KEY',
+]);
+
+// Objetos públicos — defina a ACL explicitamente
+s3_config('publico', [
+    'bucket' => 'meu-bucket',
+    'region' => 'sa-east-1',
+    'access_key' => 'SUA_ACCESS_KEY',
+    'secret_key' => 'SUA_SECRET_KEY',
+    'acl' => \S3\Lib\S3::ACL_PUBLIC_READ,
+]);
+
+// Ou em tempo de execução
+s3('default')->setDefaultAcl(\S3\Lib\S3::ACL_PUBLIC_READ);
+
+// Ou por chamada
+s3('default')->put('arquivo.txt', 'conteúdo', ['ACL' => \S3\Lib\S3::ACL_PUBLIC_READ]);
+```
 
 ## 🚀 Novidades na Versão 2.4.0
 
@@ -43,7 +83,7 @@ Uma biblioteca PHP simples e eficiente para trabalhar com Amazon S3, construída
 
 ## Requisitos
 
-- PHP 8.2 ou superior
+- PHP 8.5 ou superior
 - Composer
 - Extensões PHP: `ext-json`, `ext-openssl`
 
@@ -238,7 +278,41 @@ $bucket->setObjectAcl('uploads/imagem.jpg', S3::ACL_PRIVATE);
 // Obter estatísticas do bucket
 $size = $bucket->getBucketSize();
 $count = $bucket->getBucketObjectCount();
+
+// Estatísticas em uma única varredura (tamanho + contagem juntos)
+$stats = $bucket->getBucketStats(); // ['size' => int, 'count' => int]
 ```
+
+### Operações Concorrentes (CommandPool)
+
+Para envio/download de muitos objetos, use as operações concorrentes — elas
+disparam várias requisições em paralelo via `Aws\CommandPool`, reduzindo o
+tempo total comparado a chamadas sequenciais:
+
+```php
+// Upload concorrente (5 simultâneos por padrão)
+$result = $bucket->uploadMultiple([
+    'uploads/a.txt' => 'conteúdo A',
+    'uploads/b.txt' => fopen('/path/local.bin', 'r'), // string ou resource
+], $metadata = [], $concurrency = 10);
+
+// $result = ['results' => [chave => Aws\Result], 'errors' => [chave => Throwable]]
+echo count($result['results']) . " enviados, " . count($result['errors']) . " falhas\n";
+
+// Download concorrente
+$out = $bucket->downloadMultiple(['uploads/a.txt', 'uploads/b.txt'], 10);
+// $out = ['results' => [chave => conteúdo], 'errors' => [chave => Throwable]]
+
+// Helpers
+$result = s3_upload_multiple(['uploads/a.txt' => 'A'], [], 10);
+$out    = s3_download_multiple(['uploads/a.txt'], 10);
+$stats  = s3_bucket_stats();
+```
+
+> **Nota sobre deletes:** `deleteMultiple()` já usa o `DeleteObjects` em lote do
+> S3 (até 1000 chaves por requisição), que é mais eficiente que `CommandPool`
+> para exclusões. A partir da 3.0.0 ele divide automaticamente listas maiores
+> que 1000 em lotes e retorna um `array<int, Aws\Result>` (um por lote).
 
 ### Gerenciamento de Buckets
 
@@ -332,6 +406,9 @@ $devBucket = s3('dev');
 - `s3_delete(string $file_path, ?string $alias = null): \Aws\Result` - Deletar arquivo
 - `s3_get(string $file_path, ?string $alias = null): ?string` - Obter conteúdo
 - `s3_metadata(string $file_path, ?string $alias = null): ?array` - Obter metadados
+- `s3_upload_multiple(array $files, array $metadata = [], int $concurrency = 5, ?string $alias = null): array` - Upload concorrente
+- `s3_download_multiple(array $keys, int $concurrency = 5, ?string $alias = null): array` - Download concorrente
+- `s3_bucket_stats(?string $alias = null): array` - Tamanho + contagem em uma varredura
 
 ## Exemplos Práticos
 
@@ -439,7 +516,7 @@ try {
 ## Compatibilidade
 
 - **AWS SDK PHP**: ^3.350
-- **PHP**: ^8.2
+- **PHP**: ^8.5
 - **Regiões**: Todas as regiões AWS
 - **LocalStack**: Suporte completo
 - **CDNs**: CloudFront, Cloudflare, etc.

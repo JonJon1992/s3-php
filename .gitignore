@@ -44,3 +44,8 @@ aws-credentials.json
 # Test files
 test-uploads/
 test-downloads/
+
+.claude/
+
+.phpunit.cache/
+.phpstan/

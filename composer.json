@@ -21,7 +21,7 @@
     "phpunit/phpunit": "^11.5",
     "phpstan/phpstan": "^2.1",
     "rector/rector": "^2.0",
-    "infection/infection": "^0.29",
+    "infection/infection": "^0.35",
     "vimeo/psalm": "^6.0"
   },
   "autoload": {

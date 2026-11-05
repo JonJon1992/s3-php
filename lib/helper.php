@@ -1,12 +1,12 @@
 <?php
 
+use Aws\Result;
+use Aws\ResultInterface;
 use S3\Lib\Bucket;
 use S3\Lib\S3;
 
 if (!function_exists('s3')) {
     /**
-     * Get S3 bucket instance
-     *
      * @param string|null $alias Bucket alias
      * @return Bucket
      * @throws InvalidArgumentException
@@ -19,8 +19,6 @@ if (!function_exists('s3')) {
 
 if (!function_exists('s3_config')) {
     /**
-     * Configure S3 bucket
-     *
      * @param string $alias Bucket alias
      * @param array $config Configuration array
      * @return S3
@@ -47,8 +45,6 @@ if (!function_exists('s3_exists')) {
 
 if (!function_exists('s3_url')) {
     /**
-     * Get S3 object URL
-     *
      * @param string $file_path File path
      * @param string|null $alias Bucket alias
      * @param bool $https Use HTTPS
@@ -63,8 +59,6 @@ if (!function_exists('s3_url')) {
 
 if (!function_exists('s3_presigned_url')) {
     /**
-     * Get S3 presigned URL
-     *
      * @param string $file_path File path
      * @param int $expiration Expiration time in seconds
      * @param string $method HTTP method
@@ -80,8 +74,6 @@ if (!function_exists('s3_presigned_url')) {
 
 if (!function_exists('s3_download_url')) {
     /**
-     * Get S3 download URL with attachment disposition
-     *
      * @param string $file_path File path
      * @param int $expiration Expiration time in seconds
      * @param array $options Additional options
@@ -96,8 +88,6 @@ if (!function_exists('s3_download_url')) {
 
 if (!function_exists('s3_cdn_url')) {
     /**
-     * Get S3 object URL using CDN
-     *
      * @param string $file_path File path
      * @param string|null $alias Bucket alias
      * @return string
@@ -110,8 +100,6 @@ if (!function_exists('s3_cdn_url')) {
 
 if (!function_exists('s3_direct_url')) {
     /**
-     * Get S3 object URL without CDN
-     *
      * @param string $file_path File path
      * @param string|null $alias Bucket alias
      * @param bool $https Use HTTPS
@@ -125,8 +113,6 @@ if (!function_exists('s3_direct_url')) {
 
 if (!function_exists('s3_set_cdn')) {
     /**
-     * Set CDN URL for bucket
-     *
      * @param string $cdnUrl CDN URL
      * @param string|null $alias Bucket alias
      * @return Bucket
@@ -139,8 +125,6 @@ if (!function_exists('s3_set_cdn')) {
 
 if (!function_exists('s3_clear_cache')) {
     /**
-     * Clear URL cache for bucket
-     *
      * @param string|null $alias Bucket alias
      * @return Bucket
      */
@@ -152,8 +136,6 @@ if (!function_exists('s3_clear_cache')) {
 
 if (!function_exists('s3_presigned_post')) {
     /**
-     * Get S3 presigned POST URL for direct uploads
-     *
      * @param string $file_path File path
      * @param int $expiration Expiration time in seconds
      * @param array $conditions Additional conditions
@@ -168,13 +150,11 @@ if (!function_exists('s3_presigned_post')) {
 
 if (!function_exists('s3_upload')) {
     /**
-     * Upload file to S3
-     *
      * @param string $file_path S3 file path
      * @param mixed $content File content
      * @param array $metadata Additional metadata
      * @param string|null $alias Bucket alias
-     * @return \Aws\Result
+     * @return Result
      */
     function s3_upload(string $file_path, $content, array $metadata = [], ?string $alias = null): \Aws\Result
     {
@@ -184,13 +164,11 @@ if (!function_exists('s3_upload')) {
 
 if (!function_exists('s3_upload_file')) {
     /**
-     * Upload local file to S3
-     *
      * @param string $file_path S3 file path
      * @param string $local_path Local file path
      * @param array $metadata Additional metadata
      * @param string|null $alias Bucket alias
-     * @return \Aws\Result
+     * @return Result
      */
     function s3_upload_file(string $file_path, string $local_path, array $metadata = [], ?string $alias = null): \Aws\Result
     {
@@ -200,11 +178,9 @@ if (!function_exists('s3_upload_file')) {
 
 if (!function_exists('s3_delete')) {
     /**
-     * Delete file from S3
-     *
      * @param string $file_path S3 file path
      * @param string|null $alias Bucket alias
-     * @return \Aws\Result
+     * @return Result
      */
     function s3_delete(string $file_path, ?string $alias = null): \Aws\Result
     {
@@ -214,8 +190,6 @@ if (!function_exists('s3_delete')) {
 
 if (!function_exists('s3_get')) {
     /**
-     * Get file content from S3
-     *
      * @param string $file_path S3 file path
      * @param string|null $alias Bucket alias
      * @return string|null
@@ -228,13 +202,11 @@ if (!function_exists('s3_get')) {
 
 if (!function_exists('s3_upload_multiple')) {
     /**
-     * Upload concorrente de múltiplos objetos.
-     *
      * @param array<string, mixed> $files Mapa caminho => conteúdo
      * @param array<string, mixed> $metadata
      * @param int $concurrency
      * @param string|null $alias
-     * @return array{results: array<string, \Aws\ResultInterface>, errors: array<string, \Throwable>}
+     * @return array{results: array<string, ResultInterface>, errors: array<string, \Throwable>}
      */
     function s3_upload_multiple(array $files, array $metadata = [], int $concurrency = 5, ?string $alias = null): array
     {
@@ -244,8 +216,6 @@ if (!function_exists('s3_upload_multiple')) {
 
 if (!function_exists('s3_download_multiple')) {
     /**
-     * Download concorrente de múltiplos objetos.
-     *
      * @param array<int, string> $keys
      * @param int $concurrency
      * @param string|null $alias
@@ -259,8 +229,6 @@ if (!function_exists('s3_download_multiple')) {
 
 if (!function_exists('s3_bucket_stats')) {
     /**
-     * Estatísticas do bucket (tamanho e contagem) em uma única varredura.
-     *
      * @param string|null $alias
      * @return array{size: int, count: int}
      */
@@ -272,8 +240,6 @@ if (!function_exists('s3_bucket_stats')) {
 
 if (!function_exists('s3_metadata')) {
     /**
-     * Get file metadata from S3
-     *
      * @param string $file_path S3 file path
      * @param string|null $alias Bucket alias
      * @return array|null

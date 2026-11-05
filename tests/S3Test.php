@@ -215,4 +215,21 @@ class S3Test extends TestCase
         $this->assertArrayHasKey('test', $buckets);
         $this->assertInstanceOf(Bucket::class, $buckets['test']);
     }
+
+    public function testUseReplacesAlreadyCreatedBucket(): void
+    {
+        $s3 = S3::singleton();
+        $config = [
+            'bucket' => 'old-bucket',
+            'region' => 'us-east-1',
+            'access_key' => 'test-key',
+            'secret_key' => 'test-secret'
+        ];
+
+        $s3->use('main', $config);
+        $this->assertSame('old-bucket', $s3->bucket('main')->getBucket());
+
+        $s3->use('main', ['bucket' => 'new-bucket'] + $config);
+        $this->assertSame('new-bucket', $s3->bucket('main')->getBucket());
+    }
 }

@@ -42,6 +42,7 @@ class S3
         }
 
         $this->config[$alias] = $config;
+        unset($this->buckets[$alias]);
         return $this;
     }
 
@@ -56,7 +57,6 @@ class S3
             if (empty($this->config)) {
                 throw new InvalidArgumentException('No S3 configuration found. Use S3::use() to configure first.');
             }
-            // Primeiro alias configurado
             $alias = array_key_first($this->config);
         }
 

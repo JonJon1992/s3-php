@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<files psalm-version="7.0.3@8f2ac04d0ab5ed1d3cbe6e252b0f7232bc031aaf">
+  <file src="lib/Bucket.php">
+    <InternalMethod>
+      <code><![CDATA[upload]]></code>
+    </InternalMethod>
+    <PossiblyUnusedMethod>
+      <code><![CDATA[calcTimeOffset]]></code>
+      <code><![CDATA[createBucket]]></code>
+      <code><![CDATA[deleteBucket]]></code>
+      <code><![CDATA[endpoint]]></code>
+      <code><![CDATA[getBucketObjectCount]]></code>
+      <code><![CDATA[getBucketSize]]></code>
+      <code><![CDATA[getCdnUrl]]></code>
+      <code><![CDATA[getDefaultMetadata]]></code>
+      <code><![CDATA[getObjectAcl]]></code>
+      <code><![CDATA[getRoot]]></code>
+      <code><![CDATA[getSecretKey]]></code>
+      <code><![CDATA[getStream]]></code>
+      <code><![CDATA[isExistBucket]]></code>
+      <code><![CDATA[locationBucket]]></code>
+      <code><![CDATA[move]]></code>
+      <code><![CDATA[putFileStream]]></code>
+      <code><![CDATA[setObjectAcl]]></code>
+      <code><![CDATA[time]]></code>
+    </PossiblyUnusedMethod>
+    <PossiblyUnusedParam>
+      <code><![CDATA[$https]]></code>
+    </PossiblyUnusedParam>
+    <PossiblyUnusedProperty>
+      <code><![CDATA[$timeOff]]></code>
+    </PossiblyUnusedProperty>
+    <PossiblyUnusedReturnValue>
+      <code><![CDATA[Result]]></code>
+      <code><![CDATA[Result]]></code>
+    </PossiblyUnusedReturnValue>
+  </file>
+  <file src="tests/S3Test.php">
+    <MissingOverrideAttribute>
+      <code><![CDATA[protected function setUp(): void]]></code>
+    </MissingOverrideAttribute>
+  </file>
+</files>

@@ -4,7 +4,30 @@ Uma biblioteca PHP simples e eficiente para trabalhar com Amazon S3, construída
 
 ## Versão
 
-**3.0.0** - Compatível com AWS SDK PHP ^3.350
+**3.1.0** - Compatível com AWS SDK PHP ^3.402
+
+## 🚀 Novidades na Versão 3.1.0
+
+### ⚠️ Mudanças de Comportamento
+- **PHP 8.2+**: A versão mínima voltou a ser PHP 8.2
+- **`getFiles()`** agora respeita o `root()`, como os demais métodos, e `getFiles()` sem caminho lista o bucket inteiro
+- **URLs pré-assinadas não ficam mais em cache**: são geradas a cada chamada, para não devolver URLs expiradas em processos longos (filas, Octane, Swoole)
+
+### 🐛 Correções
+- **`presignedUrl()`** lançava `Operation not found: GET` com os argumentos padrão (afetava também `fileUrl()` e `s3_presigned_url()`)
+- **Cabeçalhos como `'Content-Type'` e `'Cache-Control'` eram descartados** pelo SDK; agora são convertidos para os parâmetros corretos (`ContentType`, `CacheControl`, ...) e chaves `x-amz-meta-*` viram `Metadata`
+- **`putFile()`** gravava tudo como `application/octet-stream`
+- **`getDownloadUrl()`** não forçava o download nem definia o nome do arquivo
+- **`uploadLargeFile()`** perdia os metadados
+- **`getObjectUrl()`** apagava espaços e acentos da chave (`relatório final.pdf` virava `relatriofinal.pdf`); agora o caminho é codificado
+- **`getObjectUrl(..., useCdn: false)`** e `s3_direct_url()` devolviam a URL da CDN
+- **Endpoint customizado** (LocalStack/MinIO): a URL pública não incluía o bucket
+- **`use_path_style`** não era repassado ao cliente S3
+- **Regiões da China** (`cn-*`) não funcionavam
+- **`copy()`/`move()`**: chaves com espaço ou acento falhavam, e copiar com novos metadados zerava o `Content-Type`
+- **`presignedPostUrl()`**: a policy não tinha a condição de `key`, e o S3 recusava o upload
+- **`S3::use()`** reconfigurando um alias continuava usando o bucket antigo
+- **`setCdnUrl()`** não limpava o cache de URLs
 
 ## 🚀 Novidades na Versão 3.0.0
 
@@ -83,9 +106,9 @@ s3('default')->put('arquivo.txt', 'conteúdo', ['ACL' => \S3\Lib\S3::ACL_PUBLIC_
 
 ## Requisitos
 
-- PHP 8.5 ou superior
+- PHP 8.2 ou superior
 - Composer
-- Extensões PHP: `ext-json`, `ext-openssl`
+- Extensões PHP: `ext-fileinfo`, `ext-json`, `ext-openssl`
 
 ## Instalação
 
@@ -227,6 +250,8 @@ $postData = s3_presigned_post('uploads/arquivo.txt', 3600); // Upload direto
 ```
 
 ### Gerenciamento de Cache
+
+Apenas as URLs públicas de `getObjectUrl()` ficam em cache (até 1000 por bucket). URLs pré-assinadas são geradas a cada chamada.
 
 ```php
 // Limpar cache de URLs

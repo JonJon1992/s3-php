@@ -18,7 +18,5 @@
         "@default": true
     },
     "testFramework": "phpunit",
-    "bootstrap": "vendor/autoload.php",
-    "initialTestsPhpOptions": "-d zend_extension=xdebug.so",
-    "testFrameworkOptions": "--configuration=phpunit.xml"
+    "bootstrap": "vendor/autoload.php"
 } 

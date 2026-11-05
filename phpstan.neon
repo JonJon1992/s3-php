@@ -9,6 +9,10 @@ parameters:
         # Substitui o antigo checkMissingIterableValueType: false (removido no PHPStan 2).
         # A biblioteca não anota genéricos de array em sua API pública.
         - identifier: missingType.iterableValue
+        -
+            identifier: argument.type
+            path: lib/Bucket.php
+            message: '#^Parameter \#1 \$args of method Aws\\S3\\S3Client::\w+\(\) expects array\{#'
     tmpDir: .phpstan
     parallel:
         maximumNumberOfProcesses: 4 

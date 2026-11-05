@@ -1,7 +1,6 @@
 # Composer
 /vendor/
 composer.phar
-composer.lock
 
 # IDE
 .idea/
@@ -22,6 +21,8 @@ logs/
 .cache/
 .phpunit.cache/
 .phpstan/
+.psalm/
+.infection/
 
 # Coverage reports
 coverage/
@@ -46,6 +47,3 @@ test-uploads/
 test-downloads/
 
 .claude/
-
-.phpunit.cache/
-.phpstan/

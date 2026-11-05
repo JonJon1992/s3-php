@@ -60,7 +60,7 @@ try {
         'Content-Type' => 'text/plain',
         'Cache-Control' => 'max-age=3600'
     ]);
-    echo "✅ Arquivo enviado: {$result['Key']}\n";
+    echo "✅ Arquivo enviado: {$result['ObjectURL']}\n";
 
     // 4. Verificar se arquivo existe
     if ($bucket->existObject('teste/arquivo.txt')) {

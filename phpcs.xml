@@ -20,11 +20,11 @@
     <arg value="s"/>
 
     <!-- Show colors -->
-    <arg value="n"/>
+    <arg name="colors"/>
 
     <!-- Show source codes in all reports -->
     <arg value="v"/>
 
     <!-- Ignore warnings for now -->
-    <arg value="w"/>
+    <arg value="n"/>
 </ruleset> 

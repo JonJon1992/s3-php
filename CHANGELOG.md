@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - 2026-11-05
+
+### Changed
+- **PHP Version**: Minimum PHP version lowered from 8.5 to **8.2**. The code only uses PHP 8.0+ features.
+- **`getFiles()`**: Now applies `root()` like every other method, and `getFiles()` without a path lists the whole bucket (it used to list nothing).
+- **Presigned URLs are no longer cached**: `presignedUrl()`, `getDownloadUrl()` and `fileUrl()` generate a new URL on every call. In long-running processes (queue workers, Octane, Swoole) cached URLs kept being returned after they expired. The public URL cache (`getObjectUrl()`) is now capped at 1000 entries.
+- **Endpoint resolution**: The S3 client no longer receives a hard-coded regional endpoint; the SDK resolves it. This fixes China regions (`cn-*`) and keeps SDK features such as dualstack and FIPS available. Public URLs for `cn-*` regions use `amazonaws.com.cn`.
+- **`uploadLargeFile()`**: Now applies the default metadata from `setDefaultMetadata()`, like `put()`.
+
+### Fixed
+- **`presignedUrl()`** threw `Operation not found: GET` with its default arguments, because the HTTP method was passed straight to `getCommand()`. `GET`, `PUT`, `DELETE` and `HEAD` are now mapped to `GetObject`, `PutObject`, `DeleteObject` and `HeadObject`; SDK operation names are still accepted. This also fixes `fileUrl()` and `s3_presigned_url()`.
+- **Header-style parameters were silently dropped**: The SDK ignores unknown keys, so `'Content-Type'`, `'Cache-Control'` and similar keys passed to `put()`, `putFile()`, `putFileStream()`, `uploadMultiple()` or `setDefaultMetadata()` never reached S3. They are now translated to SDK parameters (`ContentType`, `CacheControl`, ...), `x-amz-meta-*` keys go into `Metadata`, and snake_case keys (`response_content_type`) become PascalCase.
+- **`putFile()`** stored every file as `application/octet-stream`. The detected content type is now sent, and it no longer overrides a content type passed by the caller.
+- **`getDownloadUrl()`** did not set `Content-Disposition`, `Content-Type` or `Cache-Control` (its snake_case defaults were ignored), so the URL did not force a download.
+- **`uploadLargeFile()`** discarded metadata: it was passed as `metadata`, an option `MultipartUploader` does not have. It is now sent as `params`.
+- **`getObjectUrl()`** removed spaces and non-ASCII characters from the key (`FILTER_SANITIZE_URL`), producing URLs to objects that do not exist (`relatório final.pdf` became `relatriofinal.pdf`). Each path segment is now URL-encoded.
+- **`getObjectUrl(..., useCdn: false)`** and `s3_direct_url()` returned the CDN URL whenever a CDN was configured.
+- **Custom endpoints** (LocalStack, MinIO): Public URLs were missing the bucket name.
+- **`use_path_style`** only affected URL generation; it is now passed to the S3 client.
+- **`copy()` / `move()`**: `CopySource` is now URL-encoded (keys with spaces or accents failed). When new metadata is given, the source object's `Content-Type`, `Cache-Control`, `Content-Disposition`, `Content-Encoding` and `Content-Language` are preserved, since S3's `REPLACE` directive resets them.
+- **`presignedPostUrl()`**: The policy now includes conditions for `bucket`, `key` and every pre-filled form field. Without them S3 rejects the upload with `Extra input fields`. Conditions given by the caller for the same field are kept.
+- **`S3::use()`**: Re-configuring an alias kept returning the previously created `Bucket`.
+- **`setCdnUrl()`** did not clear cached URLs. A trailing slash in the `url_cdn` config is now trimmed.
+- **`getBucketStats()`**: `size` is always an `int`.
+
+### Removed
+- `docker-compose.yml`. It referenced a `Dockerfile` that was never committed.
+
+### Dependencies
+- `aws/aws-sdk-php` `^3.402`.
+- New `ext-fileinfo` requirement, used by `mime_content_type()`.
+- Dev: PHPUnit `^11.5 || ^12.5 || ^13.4`, PHPStan `^2.3`, Rector `^2.8`, PHP_CodeSniffer `^4.0`, Psalm `^7.0`, Infection `^0.29 || ^0.35`. The ranges allow running the suite on PHP 8.2+; the lock file uses the latest versions, which need PHP 8.4+.
+
+### Technical Details
+- `phpunit.xml`: Removed `<coverage><report>`. PHPUnit 13 refuses to run without a coverage driver when it is present; `composer test-coverage` still generates the HTML report.
+- `psalm.xml`: Added the missing `psalm-baseline.xml` with the existing issues and removed an unused suppression.
+- `phpstan.neon`: Ignore the SDK's strict array shapes for `S3Client` arguments in `Bucket` (for example literal `ACL` values), since the library forwards user-provided strings.
+- `rector.php`: PHP set lowered to `UP_TO_PHP_82` to match the minimum version.
+- `infection.json`: Removed the hard-coded `-d zend_extension=xdebug.so` (it fails when Xdebug is already loaded) and the duplicated `--configuration` option.
+- `phpcs.xml`: Removed the contradictory `-n`/`-w` flags.
+- `.gitignore`: `composer.lock` is no longer ignored (it was already tracked); added `.psalm/` and `.infection/`.
+- Added 25 tests that check the parameters actually sent to the SDK.
+
 ## [3.0.0] - 2026-06-23
 
 ### Breaking Changes

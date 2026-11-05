@@ -5,12 +5,6 @@
       <directory>tests</directory>
     </testsuite>
   </testsuites>
-  <coverage>
-    <report>
-      <html outputDirectory="coverage"/>
-      <text outputFile="coverage.txt"/>
-    </report>
-  </coverage>
   <php>
     <env name="APP_ENV" value="testing"/>
   </php>
